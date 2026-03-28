@@ -1,0 +1,31 @@
+# =========================
+# Ambiente Python
+# =========================
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# =========================
+# Variáveis de ambiente
+# =========================
+.env
+.env.*
+
+# Boletos
+Lotes/*
+
+# =========================
+# Credenciais (NUNCA versionar)
+# =========================
+credentials/
+token.json
+client_secret.json
+
+# =========================
+# Arquivos do sistema
+# =========================
+.DS_Store
+Thumbs.db
