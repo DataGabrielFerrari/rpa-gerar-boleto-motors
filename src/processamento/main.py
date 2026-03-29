@@ -3,6 +3,30 @@ import subprocess
 import time
 import sys
 
+import os
+
+def atribuir_parametros():
+    print("Python exe:", sys.executable, flush=True)
+    print("Diretório atual:", os.getcwd(), flush=True)
+    print("Argumentos recebidos:", sys.argv, flush=True)
+
+    if len(sys.argv) < 3:
+        print("ERRO: parâmetros não recebidos", flush=True)
+        sys.exit(1)
+    nome_cliente = sys.argv[1]
+    consultor = sys.argv[2]
+    grupo = sys.argv[3]
+    cota = sys.argv[4]
+
+    print(f"Nome do cliente recebido: {nome_cliente}",flush=True)
+    print(f"Consultor recebido {consultor}",flush=True)
+    print(f"Grupo recebido: {grupo}", flush=True)
+    print(f"Cota recebida: {cota}", flush=True)
+
+
+    return nome_cliente,consultor,grupo,cota
+
+atribuir_parametros()
 
 EDGE_PATH = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 URL = "https://newcon.ademicon.com.br/n4/www/frmMain.aspx"
