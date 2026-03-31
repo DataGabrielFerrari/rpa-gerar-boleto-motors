@@ -5,7 +5,7 @@ from saida.lib.db import get_conn
 from saida.lib.drive_service import processar_drive_finalizados
 from saida.jobs.enviar_email import enviar_email_lote
 from saida.jobs.atualizar_planilha import atualizar_planilhas_finalizadas
-
+from shared.log import log_info, log_erro
 
 def append_log(caminho_log: str, nivel: str, mensagem: str):
     try:

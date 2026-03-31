@@ -82,7 +82,7 @@ def _extrair_id_planilha(link: str) -> str:
 
 def _servico_sheets() -> object:
     """Autentica usando credentials/client_secret.json e credentials/token.json."""
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
     cred_dir = os.path.join(base_dir, "credentials")
     client_secret = os.path.join(cred_dir, "client_secret.json")
     token_path = os.path.join(cred_dir, "token.json")
