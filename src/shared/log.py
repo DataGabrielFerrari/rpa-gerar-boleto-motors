@@ -1,37 +1,45 @@
 import os
+import inspect
 from datetime import datetime
 from typing import Optional
-import inspect
-import os
 
-def obter_origem():
-    frame = inspect.stack()[2]
 
-    caminho_completo = frame.filename
+def obter_origem() -> str:
+    stack = inspect.stack()
 
-    # deixa caminho relativo a src
-    if "src" in caminho_completo:
-        caminho_relativo = caminho_completo.split("src")[-1]
+    frame = None
+    for item in stack:
+        caminho = item.filename.replace("\\", "/")
+        if not caminho.endswith("shared/log.py"):
+            frame = item
+            break
+
+    if frame is None:
+        frame = stack[1]
+
+    caminho_completo = frame.filename.replace("\\", "/")
+
+    if "/src/" in caminho_completo:
+        caminho_relativo = caminho_completo.split("/src/", 1)[1]
     else:
         caminho_relativo = os.path.basename(caminho_completo)
 
-    caminho_relativo = caminho_relativo.replace("\\", "/").lstrip("/")
-
     linha = frame.lineno
-
     return f"{caminho_relativo}:{linha}"
 
-# ---------- FUNÇÕES BASE ----------
 
 def obter_data_hora() -> str:
-    """Retorna data e hora atual formatada."""
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def criar_pasta_se_nao_existir(caminho: str) -> None:
-    """Cria a pasta caso não exista."""
-    if caminho:
-        os.makedirs(os.path.dirname(caminho), exist_ok=True)
+    if not caminho:
+        raise ValueError("caminho_log vazio ou inválido")
+
+    pasta = os.path.dirname(caminho)
+
+    if pasta:
+        os.makedirs(pasta, exist_ok=True)
 
 
 def formatar_linha_log(
@@ -42,8 +50,6 @@ def formatar_linha_log(
     status: str,
     detalhe: str = ""
 ) -> str:
-    """Monta a linha padrão do log."""
-
     data = obter_data_hora()
     origem = obter_origem()
 
@@ -51,7 +57,7 @@ def formatar_linha_log(
         f"{data} | "
         f"{nivel.upper()} | "
         f"{etapa} | "
-        f"{id_dado if id_dado else '-'} | "
+        f"{id_dado if id_dado is not None else '-'} | "
         f"{acao} | "
         f"{status} | "
         f"{origem} | "
@@ -59,22 +65,17 @@ def formatar_linha_log(
     )
 
 
-def escrever_log(
-    caminho_log: str,
-    linha: str
-) -> None:
-    """Escreve uma linha no arquivo de log."""
+def escrever_log(caminho_log: str, linha: str) -> None:
     try:
         criar_pasta_se_nao_existir(caminho_log)
 
         with open(caminho_log, "a", encoding="utf-8") as arquivo:
             arquivo.write(linha + "\n")
 
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[ERRO LOG] Falha ao escrever log em '{caminho_log}': {e}")
+        raise
 
-
-# ---------- FUNÇÃO PRINCIPAL ----------
 
 def registrar_log(
     caminho_log: str,
@@ -84,46 +85,34 @@ def registrar_log(
     acao: str,
     status: str,
     detalhe: str = "",
-    tempo_ms: Optional[int] = None
 ) -> None:
-    """
-    Função principal de log.
-    Use esta função no projeto.
-    """
-
     linha = formatar_linha_log(
         nivel=nivel,
         etapa=etapa,
         id_dado=id_dado,
         acao=acao,
         status=status,
-        detalhe=detalhe,
-        tempo_ms=tempo_ms
+        detalhe=detalhe
     )
 
     escrever_log(caminho_log, linha)
 
-
-# ---------- FUNÇÕES DE NÍVEL ----------
 
 def log_info(
     caminho_log: str,
     etapa: str,
     id_dado: Optional[int],
     acao: str,
-    detalhe: str = "",
-    tempo_ms: Optional[int] = None
+    detalhe: str = ""
 ) -> None:
-
     registrar_log(
-        caminho_log,
+        caminho_log=caminho_log,
         nivel="INFO",
         etapa=etapa,
         id_dado=id_dado,
         acao=acao,
         status="SUCESSO",
         detalhe=detalhe,
-        tempo_ms=tempo_ms
     )
 
 
@@ -132,19 +121,14 @@ def log_erro(
     etapa: str,
     id_dado: Optional[int],
     acao: str,
-    detalhe: str = "",
-    tempo_ms: Optional[int] = None
+    detalhe: str = ""
 ) -> None:
-
     registrar_log(
-        caminho_log,
+        caminho_log=caminho_log,
         nivel="ERROR",
         etapa=etapa,
         id_dado=id_dado,
         acao=acao,
         status="FALHA",
         detalhe=detalhe,
-        tempo_ms=tempo_ms
     )
-
-

@@ -4,11 +4,18 @@ import re
 import traceback
 import getpass
 from typing import List, Tuple, Optional
-
 try:
     from dotenv import load_dotenv
 except ImportError:
     load_dotenv = None
+SRC_DIR = os.path.dirname(os.path.dirname(__file__))
+ROOT_DIR = os.path.dirname(SRC_DIR)
+sys.path.insert(0, SRC_DIR)
+
+# Carrega o .env da raiz do projeto
+ENV_PATH = os.path.join(ROOT_DIR, ".env")
+load_dotenv(ENV_PATH, override=True)
+
 
 from lib.db import get_conn
 from lib.mes_ref import decidir_mes_ref

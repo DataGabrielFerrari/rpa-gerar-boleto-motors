@@ -5,6 +5,7 @@ import sys
 import os
 import traceback
 from dotenv import load_dotenv
+import requests
 
 # src
 SRC_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
@@ -25,6 +26,43 @@ from processamento.lib.db import get_conn
 import processamento.lib.db as db_mod
 
 print("db carregado de:", db_mod.__file__, flush=True)
+
+
+def matar_edge_debug():
+    """
+    Fecha processos do Edge que possam estar atrapalhando a porta 9222.
+    """
+    try:
+        subprocess.run(
+            ["taskkill", "/F", "/IM", "msedge.exe"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False
+        )
+        time.sleep(2)
+    except Exception:
+        pass
+
+
+def esperar_cdp(porta=9222, timeout=20):
+    """
+    Espera o endpoint de depuração do Edge responder.
+    """
+    inicio = time.time()
+
+    while time.time() - inicio < timeout:
+        try:
+            r = requests.get(f"http://127.0.0.1:{porta}/json/version", timeout=1)
+            if r.status_code == 200:
+                print(f"CDP disponível na porta {porta}", flush=True)
+                return True
+        except Exception:
+            pass
+
+        time.sleep(1)
+
+    return False
+
 
 try:
     print("Python exe:", sys.executable, flush=True)
@@ -54,27 +92,39 @@ try:
     if not row:
         raise ValueError("Retornou matricula e senha vazio")
 
-    matricula = str(row[0])
-    senha = str(row[1])
+    matricula = str(row[0]).strip()
+    senha = str(row[1]).strip()
 
     EDGE_PATH = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
-    URL = "https://newcon.ademicon.com.br/n4/www/"
+    if not os.path.exists(EDGE_PATH):
+        EDGE_PATH = r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
 
-    # fecha Edge antigo para não abrir aba duplicada
-    subprocess.run("taskkill /F /IM msedge.exe", shell=True)
-    time.sleep(2)
+    if not os.path.exists(EDGE_PATH):
+        raise FileNotFoundError("Nao encontrei o msedge.exe")
+
+    URL = "https://newcon.ademicon.com.br/n4/www/"
+    PORTA = 9222
+
+    print("Fechando Edge antigo...", flush=True)
+    matar_edge_debug()
+
+    print("Abrindo Edge com CDP...", flush=True)
 
     subprocess.Popen([
         EDGE_PATH,
-        "--remote-debugging-port=9222",
+        f"--remote-debugging-port={PORTA}",
+        "--no-first-run",
+        "--no-default-browser-check",
         "--disable-popup-blocking",
+        "--start-maximized",
         URL
     ])
 
-    time.sleep(6)
+    if not esperar_cdp(PORTA, 20):
+        raise Exception(f"Edge nao abriu com depuracao remota na porta {PORTA}")
 
     with sync_playwright() as p:
-        browser = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
+        browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{PORTA}")
 
         if not browser.contexts:
             raise Exception("Nenhum contexto encontrado no Edge")
@@ -83,26 +133,36 @@ try:
         page_alvo = None
 
         for page in context.pages:
-            url_atual = page.url.lower()
-            print("Aba encontrada:", url_atual, flush=True)
+            try:
+                url_atual = page.url.lower()
+                print("Aba encontrada:", url_atual, flush=True)
 
-            if "frmcorcccnslogin.aspx" in url_atual:
-                page_alvo = page
-                break
+                if "frmcorcccnslogin.aspx" in url_atual:
+                    page_alvo = page
+                    break
+            except Exception:
+                pass
 
         if not page_alvo:
             for page in context.pages:
-                url_atual = page.url.lower()
-                if "newcon.ademicon.com.br/n4/www/" in url_atual:
-                    page_alvo = page
-                    break
+                try:
+                    url_atual = page.url.lower()
+                    if "newcon.ademicon.com.br/n4/www/" in url_atual:
+                        page_alvo = page
+                        break
+                except Exception:
+                    pass
 
         if not page_alvo:
-            raise Exception("Nao achei a aba do Newcon aberta")
+            if context.pages:
+                page_alvo = context.pages[0]
+            else:
+                page_alvo = context.new_page()
+                page_alvo.goto(URL, wait_until="load")
 
         page = page_alvo
         page.bring_to_front()
-        page.wait_for_load_state()
+        page.wait_for_load_state("load")
 
         print("Conectado na aba:", page.url, flush=True)
 

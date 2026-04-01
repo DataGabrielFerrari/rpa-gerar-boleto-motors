@@ -1,9 +1,13 @@
 import os
 import zipfile
+
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from google.auth.transport.requests import Request
+
 from saida.lib.db import get_conn
+from shared.log import log_info, log_erro
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -28,14 +32,17 @@ MESES_PT = {
 
 
 def mes_extenso(mes_ref: int) -> str:
-    return MESES_PT[mes_ref % 100]
-
+    mes = mes_ref % 100
+    if mes not in MESES_PT:
+        raise ValueError(f"mes_ref inválido: {mes_ref}")
+    return MESES_PT[mes]
 
 def zipar_boletos(caminho_lote: str, nome_adm: str, mes_ref: int) -> str:
     boletos_dir = os.path.join(caminho_lote, "Boletos")
 
-    if not os.path.isdir(boletos_dir):
-        raise Exception(f"Pasta Boletos não encontrada: {boletos_dir}")
+    print("ZIPANDO:", boletos_dir)
+
+    arquivos_encontrados = 0
 
     nome_zip = f"{nome_adm}_{mes_extenso(mes_ref)}.zip"
     zip_path = os.path.join(caminho_lote, nome_zip)
@@ -43,147 +50,183 @@ def zipar_boletos(caminho_lote: str, nome_adm: str, mes_ref: int) -> str:
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:
         for root, _, files in os.walk(boletos_dir):
             for file in files:
+                arquivos_encontrados += 1
                 full_path = os.path.join(root, file)
                 relative_path = os.path.relpath(full_path, boletos_dir)
                 z.write(full_path, relative_path)
 
+    print("Arquivos zipados:", arquivos_encontrados)
+
     return zip_path
 
 
-def criar_link_drive(zip_path: str, nome_zip: str, logger=None) -> str:
-    import requests
-    from google.auth.transport.requests import Request
-    from googleapiclient.errors import HttpError
+def criar_link_drive(
+    zip_path: str,
+    nome_zip: str,
+    caminho_log: str,
+    id_fila_adm: int
+) -> str:
+    project_root = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
+)
 
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    token_path = os.path.join(base_dir, "credentials", "token.json")
+    token_path = os.path.join(project_root, "credentials", "token.json")
 
     if not os.path.exists(token_path):
         raise FileNotFoundError(f"token.json não encontrado em: {token_path}")
 
     creds = Credentials.from_authorized_user_file(token_path, SCOPES)
 
-    def log(msg: str):
-        if logger:
-            logger.info(msg)
-        else:
-            print(msg)
-
-    log(f"[DRIVE] token_path={token_path}")
-    log(f"[DRIVE] creds.scopes={getattr(creds, 'scopes', None)}")
-    log(f"[DRIVE] has_drive_scope={creds.has_scopes(['https://www.googleapis.com/auth/drive'])}")
-    log(f"[DRIVE] valid={creds.valid} expired={creds.expired} has_refresh={bool(creds.refresh_token)}")
-
-    # 1) GARANTE access_token ATUAL
-    # Se não tiver token (None) ou estiver expirado, dá refresh.
-    if (not getattr(creds, "token", None)) or (not creds.valid):
-        if creds.refresh_token:
-            log("[DRIVE] Refreshing access token...")
-            creds.refresh(Request())
-            log(f"[DRIVE] After refresh: valid={creds.valid} expired={creds.expired} token_present={bool(creds.token)}")
-        else:
-            # Sem refresh_token -> token inválido para operar em background
-            raise RuntimeError("Token sem refresh_token. Refaça o OAuth com access_type='offline' e prompt='consent'.")
-
-    # 2) TOKENINFO (DIAGNÓSTICO REAL)
-    # Esse é o que vale: scopes efetivos do access token ATUAL.
-    try:
-        r = requests.get(
-            "https://oauth2.googleapis.com/tokeninfo",
-            params={"access_token": creds.token},
-            timeout=20
+    if creds and creds.expired and creds.refresh_token:
+        log_info(
+            caminho_log=caminho_log,
+            etapa="DRIVE",
+            id_dado=id_fila_adm,
+            acao="Refresh token",
+            detalhe="Token expirado, tentando refresh"
         )
-        # tokeninfo retorna 200 com scope, ou 400 com error
-        log(f"[TOKENINFO] status={r.status_code} body={r.text}")
-    except Exception as e:
-        log(f"[TOKENINFO] erro ao consultar tokeninfo: {e}")
 
-    # 3) TRAVA se não tiver escopo de drive (pelo "contrato" do Credentials)
-    if not creds.has_scopes(["https://www.googleapis.com/auth/drive"]):
-        raise RuntimeError("Token OAuth sem escopo do Drive (creds.has_scopes=False). Refaça o OAuth pedindo scope drive.")
+        creds.refresh(Request())
 
-    # 4) EXECUTA DRIVE (com HttpError detalhado)
-    service = build("drive", "v3", credentials=creds, cache_discovery=False)
+        with open(token_path, "w", encoding="utf-8") as f:
+            f.write(creds.to_json())
+
+        log_info(
+            caminho_log=caminho_log,
+            etapa="DRIVE",
+            id_dado=id_fila_adm,
+            acao="Refresh token",
+            detalhe="Token atualizado com sucesso"
+        )
+
+    if not creds or not creds.valid:
+        raise RuntimeError("Credenciais do Google Drive inválidas")
+
+    service = build("drive", "v3", credentials=creds)
 
     media = MediaFileUpload(zip_path, resumable=True)
-    try:
-        file = service.files().create(
-            body={"name": nome_zip},
-            media_body=media,
-            fields="id, webViewLink"
-        ).execute()
 
-        # libera "anyone with link"
-        service.permissions().create(
-            fileId=file["id"],
-            body={"type": "anyone", "role": "reader"}
-        ).execute()
+    file = service.files().create(
+        body={"name": nome_zip},
+        media_body=media,
+        fields="id, webViewLink"
+    ).execute()
 
-        return file["webViewLink"]
+    service.permissions().create(
+        fileId=file["id"],
+        body={"type": "anyone", "role": "reader"}
+    ).execute()
 
-    except HttpError as e:
-        # isso te mostra o endpoint real que falhou e o JSON de erro
-        content = getattr(e, "content", b"")
-        try:
-            content_txt = content.decode("utf-8", errors="replace")
-        except Exception:
-            content_txt = repr(content)
-
-        log(f"[DRIVE HTTPERROR] status={getattr(e.resp, 'status', None)} uri={getattr(e, 'uri', None)} content={content_txt}")
-        raise
-    
+    return file["webViewLink"]
 
 
-def processar_drive_finalizados(logger):
+def processar_drive_finalizados(id_fila_adm: int) -> int:
     conn = get_conn()
-    cur = conn.cursor()
 
-    cur.execute(
-        """
-        SELECT f.id_fila_adm, f.mes_ref, f.caminho_lote, a.nome
-        FROM tbl_fila_adm f
-        JOIN tbl_adm a ON a.id_adm = f.id_adm
-        WHERE TRIM(UPPER(f.status)) = 'FINALIZADO'
-          AND f.link_drive IS NULL
-          AND f.caminho_lote IS NOT NULL
-        ORDER BY f.id_fila_adm
-        """
-    )
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    f.id_fila_adm,
+                    f.mes_ref,
+                    f.caminho_lote,
+                    f.caminho_log,
+                    a.nome
+                FROM tbl_fila_adm f
+                JOIN tbl_adm a ON a.id_adm = f.id_adm
+                WHERE f.id_fila_adm = %s
+                  AND TRIM(UPPER(f.status)) = 'FINALIZADO'
+                  AND f.link_drive IS NULL
+                  AND f.caminho_lote IS NOT NULL
+                """,
+                (id_fila_adm,)
+            )
+            row = cur.fetchone()
 
-    rows = cur.fetchall()
+        if not row:
+            return 0
 
-    if not rows:
-        cur.close()
-        conn.close()
-        return 0
+        id_fila_adm_db, mes_ref, caminho_lote, caminho_log, nome_adm = row
 
-    enviados = 0
+        log_info(
+            caminho_log=caminho_log,
+            etapa="DRIVE",
+            id_dado=id_fila_adm_db,
+            acao="Processar lote",
+            detalhe=f"Gerando zip para ADM={nome_adm}"
+        )
 
-    for id_fila_adm, mes_ref, caminho_lote, nome_adm in rows:
-        try:
-            logger.info(f"[DRIVE] Processando lote {id_fila_adm}")
+        zip_path = zipar_boletos(caminho_lote, nome_adm, mes_ref)
+        nome_zip = os.path.basename(zip_path)
 
-            zip_path = zipar_boletos(caminho_lote, nome_adm, mes_ref)
-            nome_zip = os.path.basename(zip_path)
+        log_info(
+            caminho_log=caminho_log,
+            etapa="DRIVE",
+            id_dado=id_fila_adm_db,
+            acao="Upload Drive",
+            detalhe=f"Arquivo={nome_zip}"
+        )
 
-            link = criar_link_drive(zip_path, nome_zip,logger=logger)
+        link = criar_link_drive(
+            zip_path=zip_path,
+            nome_zip=nome_zip,
+            caminho_log=caminho_log,
+            id_fila_adm=id_fila_adm_db
+        )
+
+        with conn.cursor() as cur:
             cur.execute(
                 """
                 UPDATE tbl_fila_adm
                 SET link_drive = %s
                 WHERE id_fila_adm = %s
                 """,
-                (link, id_fila_adm),
+                (link, id_fila_adm_db),
             )
-            conn.commit()
 
-            logger.info(f"[DRIVE OK] id_fila_adm={id_fila_adm} link={link}")
-            enviados += 1
+        conn.commit()
 
-        except Exception as e:
-            conn.rollback()
-            logger.error(f"[DRIVE ERRO] id_fila_adm={id_fila_adm} erro={e}")
+        log_info(
+            caminho_log=caminho_log,
+            etapa="DRIVE",
+            id_dado=id_fila_adm_db,
+            acao="Finalizar upload",
+            detalhe=f"link_drive gerado com sucesso"
+        )
 
-    cur.close()
-    conn.close()
-    return enviados
+        return 1
+
+    except Exception as e:
+        conn.rollback()
+
+        caminho_log_erro = None
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT caminho_log
+                    FROM tbl_fila_adm
+                    WHERE id_fila_adm = %s
+                    """,
+                    (id_fila_adm,)
+                )
+                row_log = cur.fetchone()
+                if row_log:
+                    caminho_log_erro = row_log[0]
+        except Exception:
+            pass
+
+        if caminho_log_erro:
+            log_erro(
+                caminho_log=caminho_log_erro,
+                etapa="DRIVE",
+                id_dado=id_fila_adm,
+                acao="Processar lote",
+                detalhe=f"erro={e}"
+            )
+
+        raise
+
+    finally:
+        conn.close()

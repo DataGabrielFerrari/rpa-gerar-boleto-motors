@@ -1,0 +1,27 @@
+2026-04-01 14:46:32 | INFO | 97 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 14:46:32 | INFO | 97 | Refresh token | Token expirado. Tentando refresh automático | SUCESSO | saida/jobs/enviar_email.py:69 | 
+2026-04-01 14:46:34 | INFO | 97 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:345 | 
+2026-04-01 14:48:01 | INFO | 97 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 14:48:02 | INFO | 97 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:345 | 
+2026-04-01 14:49:47 | INFO | 97 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 14:49:48 | INFO | 97 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:345 | 
+2026-04-01 14:53:10 | INFO | 97 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 14:53:11 | INFO | 97 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:345 | 
+2026-04-01 15:31:29 | INFO | 97 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 15:31:30 | INFO | 97 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:341 | 
+2026-04-01 15:43:44 | INFO | 98 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 15:43:44 | INFO | 98 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:341 | 
+2026-04-01 16:51:19 | INFO | 99 | Nao encontrados | qtd=9 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 16:51:20 | INFO | 99 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=9 | SUCESSO | saida/jobs/enviar_email.py:341 | 
+2026-04-01 17:03:35 | INFO | 100 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 17:03:36 | INFO | 100 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:341 | 
+2026-04-01 17:16:03 | INFO | 101 | Nao encontrados | qtd=1 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 17:16:03 | INFO | 101 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=1 | SUCESSO | saida/jobs/enviar_email.py:341 | 
+2026-04-01 17:29:48 | INFO | 102 | Nao encontrados | qtd=1 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 17:29:48 | INFO | 102 | Enviar email | destino=gabrielferrariti22@gmail.com nao_encontrados=1 | SUCESSO | saida/jobs/enviar_email.py:341 | 
+2026-04-01 17:46:03 | INFO | 103 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 17:46:04 | INFO | 103 | Enviar email | destino=rpa.ademicon@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:341 | 
+2026-04-01 18:26:23 | INFO | 107 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 18:26:24 | INFO | 107 | Enviar email | destino=rpa.ademicon@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:341 | 
+2026-04-01 18:46:09 | INFO | 108 | Nao encontrados | qtd=0 | SUCESSO | saida/jobs/enviar_email.py:126 | 
+2026-04-01 18:46:10 | INFO | 108 | Enviar email | destino=rpa.ademicon@gmail.com nao_encontrados=0 | SUCESSO | saida/jobs/enviar_email.py:341 | 

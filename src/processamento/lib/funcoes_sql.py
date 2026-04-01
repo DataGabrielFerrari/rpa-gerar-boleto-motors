@@ -4,7 +4,7 @@ from processamento.lib.db import get_conn
 import sys
 
 # Atribuir parametros da tbl_fila_cotas com base no id_cota recebido de entrada
-def atribuir_parametros():
+def obter_fila():
     print("Python exe:", sys.executable, flush=True)
     print("Diretório atual:", os.getcwd(), flush=True)
     print("Argumentos recebidos:", sys.argv, flush=True)
@@ -158,13 +158,48 @@ def atualizar_status(
     )
     return executar_update(query, params)
 
+def atualizar_contador_status(
+    id_fila_adm: int,
+    status: str,
+) -> int:
+    """
+    Incrementa apenas a coluna correspondente ao status.
+    """
+
+    status_normalizado = status.upper().strip()
+
+    mapa_status = {
+        "NORMAL": "clientes_sucesso",
+        "UNIFICADO": "clientes_sucesso",
+        "ERRO": "clientes_erro",
+        "FALHA": "clientes_erro",
+        "EM ATRASO": "clientes_com_atraso",
+        "ADIANTADO": "clientes_adiantados"
+    }
+
+    coluna_contador = mapa_status.get(status_normalizado)
+
+    if not coluna_contador:
+        return 0
+
+    query = f"""
+        UPDATE tbl_fila_adm
+        SET {coluna_contador} = COALESCE({coluna_contador}, 0) + 1
+        WHERE id_fila_adm = %s
+    """
+
+    params = (id_fila_adm,)
+
+    return executar_update(query, params)
+
 
 def verificar_cota_existe_na_fila(
     id_fila_adm: int,
     grupo: str,
     cota: str
 ) -> bool:
-
+    grupo = str(grupo).zfill(6)
+    cota = str(cota).zfill(4)
     with get_conn() as conexao:
         with conexao.cursor() as cur:
 
@@ -205,3 +240,18 @@ def atualizar_status_unificados(
         cota
     )
     return executar_update(query, params)
+
+
+def obter_url_newcon():
+    with get_conn() as conexao:
+        with conexao.cursor() as cur:
+            cur.execute(
+                """
+                SELECT valor
+                FROM tbl_parametros
+                WHERE nome = 'url_newcon'
+                """
+            )
+            row = cur.fetchone()
+
+    return row[0] if row else None
